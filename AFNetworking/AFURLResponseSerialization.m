@@ -50,6 +50,7 @@ static NSError * AFErrorWithUnderlyingError(NSError *error, NSError *underlyingE
     return [[NSError alloc] initWithDomain:error.domain code:error.code userInfo:mutableUserInfo];
 }
 
+// 递归解析错误，直到解析完成，返回是否匹配到 error 和对应的 code 和 domain
 static BOOL AFErrorOrUnderlyingErrorHasCodeInDomain(NSError *error, NSInteger code, NSString *domain) {
     if ([error.domain isEqualToString:domain] && error.code == code) {
         return YES;
@@ -99,14 +100,16 @@ id AFJSONObjectByRemovingKeysWithNullValues(id JSONObject, NSJSONReadingOptions 
         return nil;
     }
 
+    // 可悲接受的值类型应该在 100 和 200 之间
     self.acceptableStatusCodes = [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(200, 100)];
+    // 并支持接受所有类型
     self.acceptableContentTypes = nil;
 
     return self;
 }
 
 #pragma mark -
-
+// 检查当前的 response 是否可以被正常解析
 - (BOOL)validateResponse:(NSHTTPURLResponse *)response
                     data:(NSData *)data
                    error:(NSError * __autoreleasing *)error
@@ -114,7 +117,9 @@ id AFJSONObjectByRemovingKeysWithNullValues(id JSONObject, NSJSONReadingOptions 
     BOOL responseIsValid = YES;
     NSError *validationError = nil;
 
+    // response 是否是 HTTP 的response
     if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+        // 设置了能够接受的类型，并且不包含了返回的 MIME，并且数据为空，那么表示响应失败，走入错误糊掉的流程
         if (self.acceptableContentTypes && ![self.acceptableContentTypes containsObject:[response MIMEType]] &&
             !([response MIMEType] == nil && [data length] == 0)) {
 
@@ -134,6 +139,7 @@ id AFJSONObjectByRemovingKeysWithNullValues(id JSONObject, NSJSONReadingOptions 
             responseIsValid = NO;
         }
 
+        // 否则状态码错误，也显示错误，继续进行错误回调
         if (self.acceptableStatusCodes && ![self.acceptableStatusCodes containsIndex:(NSUInteger)response.statusCode] && [response URL]) {
             NSMutableDictionary *mutableUserInfo = [@{
                                                NSLocalizedDescriptionKey: [NSString stringWithFormat:NSLocalizedStringFromTable(@"Request failed: %@ (%ld)", @"AFNetworking", nil), [NSHTTPURLResponse localizedStringForStatusCode:response.statusCode], (long)response.statusCode],
@@ -164,6 +170,7 @@ id AFJSONObjectByRemovingKeysWithNullValues(id JSONObject, NSJSONReadingOptions 
                            data:(NSData *)data
                           error:(NSError *__autoreleasing *)error
 {
+    // 这里没有用抛出来的值，原因未知？已提 issue 。https://github.com/AFNetworking/AFNetworking/issues/4368
     [self validateResponse:(NSHTTPURLResponse *)response data:data error:error];
 
     return data;
@@ -171,10 +178,12 @@ id AFJSONObjectByRemovingKeysWithNullValues(id JSONObject, NSJSONReadingOptions 
 
 #pragma mark - NSSecureCoding
 
+// 是否支持安全加密，主要目的是为了 archive 更加安全
 + (BOOL)supportsSecureCoding {
     return YES;
 }
 
+// 解密方式
 - (instancetype)initWithCoder:(NSCoder *)decoder {
     self = [self init];
     if (!self) {
@@ -187,6 +196,7 @@ id AFJSONObjectByRemovingKeysWithNullValues(id JSONObject, NSJSONReadingOptions 
     return self;
 }
 
+// 加密方式
 - (void)encodeWithCoder:(NSCoder *)coder {
     [coder encodeObject:self.acceptableStatusCodes forKey:NSStringFromSelector(@selector(acceptableStatusCodes))];
     [coder encodeObject:self.acceptableContentTypes forKey:NSStringFromSelector(@selector(acceptableContentTypes))];
@@ -231,11 +241,12 @@ id AFJSONObjectByRemovingKeysWithNullValues(id JSONObject, NSJSONReadingOptions 
 }
 
 #pragma mark - AFURLResponseSerialization
-
+// 解析对象，重写父类方法。
 - (id)responseObjectForResponse:(NSURLResponse *)response
                            data:(NSData *)data
                           error:(NSError *__autoreleasing *)error
 {
+    // 是否可以正常解析
     if (![self validateResponse:(NSHTTPURLResponse *)response data:data error:error]) {
         if (!error || AFErrorOrUnderlyingErrorHasCodeInDomain(*error, NSURLErrorCannotDecodeContentData, AFURLResponseSerializationErrorDomain)) {
             return nil;
@@ -244,6 +255,7 @@ id AFJSONObjectByRemovingKeysWithNullValues(id JSONObject, NSJSONReadingOptions 
 
     // Workaround for behavior of Rails to return a single space for `head :ok` (a workaround for a bug in Safari), which is not interpreted as valid input by NSJSONSerialization.
     // See https://github.com/rails/rails/issues/1742
+    // 是否是空数据
     BOOL isSpace = [data isEqualToData:[NSData dataWithBytes:" " length:1]];
     
     if (data.length == 0 || isSpace) {
@@ -262,6 +274,7 @@ id AFJSONObjectByRemovingKeysWithNullValues(id JSONObject, NSJSONReadingOptions 
         return nil;
     }
     
+    // 是否需要移除所有 NSNull 值
     if (self.removesKeysWithNullValues) {
         return AFJSONObjectByRemovingKeysWithNullValues(responseObject, self.readingOptions);
     }
@@ -304,6 +317,7 @@ id AFJSONObjectByRemovingKeysWithNullValues(id JSONObject, NSJSONReadingOptions 
 
 #pragma mark -
 
+// XML 解析器，原理同上
 @implementation AFXMLParserResponseSerializer
 
 + (instancetype)serializer {
@@ -343,7 +357,7 @@ id AFJSONObjectByRemovingKeysWithNullValues(id JSONObject, NSJSONReadingOptions 
 #pragma mark -
 
 #ifdef __MAC_OS_X_VERSION_MIN_REQUIRED
-
+// XML 文档解析器，仅 Mac OS X
 @implementation AFXMLDocumentResponseSerializer
 
 + (instancetype)serializer {
@@ -427,7 +441,7 @@ id AFJSONObjectByRemovingKeysWithNullValues(id JSONObject, NSJSONReadingOptions 
 #endif
 
 #pragma mark -
-
+// Plist 解析器
 @implementation AFPropertyListResponseSerializer
 
 + (instancetype)serializer {
@@ -531,6 +545,7 @@ id AFJSONObjectByRemovingKeysWithNullValues(id JSONObject, NSJSONReadingOptions 
 
 static NSLock* imageLock = nil;
 
+// 解析图片专用
 @implementation UIImage (AFNetworkingSafeImageLoading)
 
 + (UIImage *)af_safeImageWithData:(NSData *)data {
@@ -565,6 +580,7 @@ static UIImage * AFInflatedImageFromResponseWithDataAtScale(NSHTTPURLResponse *r
     CGImageRef imageRef = NULL;
     CGDataProviderRef dataProvider = CGDataProviderCreateWithCFData((__bridge CFDataRef)data);
 
+    // 基于 Provider 将 data 进行转换
     if ([response.MIMEType isEqualToString:@"image/png"]) {
         imageRef = CGImageCreateWithPNGDataProvider(dataProvider,  NULL, true, kCGRenderingIntentDefault);
     } else if ([response.MIMEType isEqualToString:@"image/jpeg"]) {
@@ -596,6 +612,7 @@ static UIImage * AFInflatedImageFromResponseWithDataAtScale(NSHTTPURLResponse *r
         }
     }
 
+    // 获得图片的相关属性
     size_t width = CGImageGetWidth(imageRef);
     size_t height = CGImageGetHeight(imageRef);
     size_t bitsPerComponent = CGImageGetBitsPerComponent(imageRef);
@@ -607,6 +624,7 @@ static UIImage * AFInflatedImageFromResponseWithDataAtScale(NSHTTPURLResponse *r
     }
 
     // CGImageGetBytesPerRow() calculates incorrectly in iOS 5.0, so defer to CGBitmapContextCreate
+    // 根据系统进行判断，由于一些老版本机型对于图形解析有问题，需要手动进行绘制
     size_t bytesPerRow = 0;
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
     CGColorSpaceModel colorSpaceModel = CGColorSpaceGetModel(colorSpace);
@@ -663,6 +681,7 @@ static UIImage * AFInflatedImageFromResponseWithDataAtScale(NSHTTPURLResponse *r
 
 #if TARGET_OS_IOS || TARGET_OS_TV
     self.imageScale = [[UIScreen mainScreen] scale];
+    // 图片是否需要进行压缩处理。https://www.jianshu.com/p/a61be293671c
     self.automaticallyInflatesResponseImage = YES;
 #elif TARGET_OS_WATCH
     self.imageScale = [[WKInterfaceDevice currentDevice] screenScale];
@@ -749,7 +768,7 @@ static UIImage * AFInflatedImageFromResponseWithDataAtScale(NSHTTPURLResponse *r
 @end
 
 #pragma mark -
-
+// 复合解析器，传入一堆解析器，用于在类型解析的时候单独进行解析
 @interface AFCompoundResponseSerializer ()
 @property (readwrite, nonatomic, copy) NSArray *responseSerializers;
 @end

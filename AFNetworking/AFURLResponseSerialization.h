@@ -58,6 +58,7 @@ id AFJSONObjectByRemovingKeysWithNullValues(id JSONObject, NSJSONReadingOptions 
 
  Any request or response serializer dealing with HTTP is encouraged to subclass `AFHTTPResponseSerializer` in order to ensure consistent default behavior.
  */
+// 序列化对象父类
 @interface AFHTTPResponseSerializer : NSObject <AFURLResponseSerialization>
 
 - (instancetype)init;

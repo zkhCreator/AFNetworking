@@ -113,6 +113,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  The security policy used by created session to evaluate server trust for secure connections. `AFURLSessionManager` uses the `defaultPolicy` unless otherwise specified.
+ 用于判断服务端安全连接的信任的安全策略
  */
 @property (nonatomic, strong) AFSecurityPolicy *securityPolicy;
 

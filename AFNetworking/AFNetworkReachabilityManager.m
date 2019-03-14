@@ -203,7 +203,7 @@ static void AFNetworkReachabilityReleaseCallback(const void *info) {
 }
 
 #pragma mark -
-
+// 开始监听网络变化，调用系统模块
 - (void)startMonitoring {
     [self stopMonitoring];
 

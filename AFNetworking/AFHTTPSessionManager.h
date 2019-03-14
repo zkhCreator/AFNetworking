@@ -71,6 +71,7 @@
  @warning Managers for background sessions must be owned for the duration of their use. This can be accomplished by creating an application-wide or shared singleton instance.
  */
 
+// 用于快速创建对应请求，对原有的 SessionManager 进行封装
 NS_ASSUME_NONNULL_BEGIN
 
 @interface AFHTTPSessionManager : AFURLSessionManager <NSSecureCoding, NSCopying>
@@ -78,6 +79,7 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  The URL used to construct requests from relative paths in methods like `requestWithMethod:URLString:parameters:`, and the `GET` / `POST` / et al. convenience methods.
  */
+// 如果进行设置，那么请求的 baseURL 可以进行省略
 @property (readonly, nonatomic, strong, nullable) NSURL *baseURL;
 
 /**
